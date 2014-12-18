@@ -1,0 +1,53 @@
+@C 3ffff 0002f
+00015       ; 00000 begin :       BRA main
+00210       ; 00001 Hex7Seg :     BRS Hex7Seg_bgn
+0007e       ; 00002 Hex7Seg_tbl : CONS %01111110
+00030       ; 00003               CONS %00110000
+0006d       ; 00004               CONS %01101101
+00079       ; 00005               CONS %01111001
+00033       ; 00006               CONS %00110011
+0005b       ; 00007               CONS %01011011
+0005f       ; 00008               CONS %01011111
+00070       ; 00009               CONS %01110000
+0007f       ; 0000a               CONS %01111111
+0007b       ; 0000b               CONS %01111011
+00077       ; 0000c               CONS %01110111
+0001f       ; 0000d               CONS %00011111
+0004e       ; 0000e               CONS %01001110
+0003d       ; 0000f               CONS %00111101
+0004f       ; 00010               CONS %01001111
+00047       ; 00011               CONS %01000111
+3000f       ; 00012 Hex7Seg_bgn : AND R0 %01111
+08df1       ; 00013               LOAD R1 [R7++]
+08d20       ; 00014               LOAD R1 [R1+R0]
+045f1       ; 00015               RTS
+0a8f0       ; 00016 main :        LOAD R5 IOAREA
+09000       ; 00017               LOAD R2 0
+09800       ; 00018               LOAD R3 0
+084a7       ; 00019 loop :        LOAD R0 [R5+INPUT]
+3c4ab       ; 0001a               STOR R0 [R5+OUTPUT]
+14001       ; 0001b               CMP R0 1
+00608       ; 0001c               BNE next
+0d001       ; 0001d               ADD R2 1
+3100f       ; 0001e               AND R2 %01111
+08102       ; 0001f               LOAD R0 R2
+003e0       ; 00020               BRS Hex7Seg
+3cca8       ; 00021               STOR R1 [R5+DSPSEG]
+08801       ; 00022               LOAD R1 %000001
+3cca9       ; 00023               STOR R1 [R5+DSPDIG]
+001f4       ; 00024               BRA loop
+14002       ; 00025 next :        CMP R0 2
+007f2       ; 00026               BNE loop
+0d801       ; 00027               ADD R3 1
+3180f       ; 00028               AND R3 %01111
+08103       ; 00029               LOAD R0 R3
+003d6       ; 0002a               BRS Hex7Seg
+3cca8       ; 0002b               STOR R1 [R5+DSPSEG]
+08802       ; 0002c               LOAD R1 %000010
+3cca9       ; 0002d               STOR R1 [R5+DSPDIG]
+001ea       ; 0002e               BRA loop
+
+
+@S 3ffff 000f0
+
+.
