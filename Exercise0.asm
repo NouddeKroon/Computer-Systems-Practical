@@ -19,7 +19,7 @@
    DSPSEG      EQU    8  ;  relative position of the 7-segment display's segments
 
   begin :      BRA  main         ;  skip subroutine Hex7Seg
-;  
+;
 ;      Routine Hex7Seg maps a number in the range [0..15] to its hexadecimal
 ;      representation pattern for the 7-segment display.
 ;      R0 : upon entry, contains the number
@@ -55,21 +55,29 @@ Hex7Seg_bgn:   AND  R0  %01111   ;  R0 := R0 MOD 16 , just to be safe...
 ;
    loop :     LOAD  R0  [R5+INPUT]  ;   read Input Buttons
               STOR  R0  [R5+OUTPUT] ;  write this to Output LEDs
-               CMP  R0  1        ;  test if Button 0 is pressed, and no other ones
-               BNE  next         ;  if not then skip this part, continue at "next"
+               ;CMP  R0  1        ;  test if Button 0 is pressed, and no other ones
+
+              LOAD  R4  R0
+               AND  R4  1
+               BEQ  next         ;  if not then skip this part, continue at "next"
                ADD  R2  1        ;  increment counter nr. 0
                AND  R2  %01111   ;  take it modulo 16
+              LOAD  R4  R0
               LOAD  R0  R2       ;  copy counter 0 into R0; R2 must be preserved
                BRS  Hex7Seg      ;  translate (value in) R0 into a display pattern
               STOR  R1  [R5+DSPSEG] ; and place this in the Display Element
               LOAD  R1  %000001  ;  R1 := the bitpattern identifying Digit 0
               STOR  R1  [R5+DSPDIG] ; activate Display Element nr. 0
-               BRA  loop         ;  repeat ad infinitum...
+              LOAD  R0  R4
+               ;BRA  loop         ;  repeat ad infinitum...
+               ;BRA  next         ;  repeat ad infinitum...
 ;
-   next :      CMP  R0  2        ;  test if Button 1 is pressed, and no other ones
-               BNE  loop         ;  if not then skip this part
+   next :      ;CMP  R0  2        ;  test if Button 1 is pressed, and no other ones
+               AND  R0  2
+               BEQ  loop         ;  if not then skip this part
                ADD  R3  1        ;  increment counter nr. 1
                AND  R3  %01111   ;  take it modulo 16
+              LOAD  R4  R0
               LOAD  R0  R3       ;  copy counter 1 into R0; R3 must be preserved
                BRS  Hex7Seg      ;  translate (value in) R0 into a display pattern
               STOR  R1  [R5+DSPSEG] ; and place this in the Display Element
