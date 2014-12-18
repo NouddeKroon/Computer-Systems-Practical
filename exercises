@@ -1,0 +1,14 @@
+Exercises:
+    1.2c, 2.3d, 2.5, 3.c, 4.2b, 5.2.a, 5.2 b or c
+    |
+    |- assembler source (layout!, structure)
+    |- explanation
+    |- execution on PP2 processor
+
+Reading Material:
+    * PP2 Programming Guide
+    * Manual Assembler
+    * PP2 Board User Guide
+    * PP2 Instruction Set Summary (overview instruction set)
+    * PP2 Architecture and Instruction Set (background, detailed info).
+
