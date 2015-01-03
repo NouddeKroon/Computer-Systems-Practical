@@ -21,49 +21,23 @@
     ; GLOBALS
     INPUTS     EQU   1
 
-  begin :      BRA  main         ;  skip subroutine Hex7Seg
-;
-;      Routine Hex7Seg maps a number in the range [0..15] to its hexadecimal
-;      representation pattern for the 7-segment display.
-;      R0 : upon entry, contains the number
-;      R1 : upon exit,  contains the resulting pattern
-;
-Hex7Seg     :  BRS  Hex7Seg_bgn  ;  push address(tbl) onto stack and proceed at "bgn"
-Hex7Seg_tbl : CONS  %01111110    ;  7-segment pattern for '0'
-              CONS  %00110000    ;  7-segment pattern for '1'
-              CONS  %01101101    ;  7-segment pattern for '2'
-              CONS  %01111001    ;  7-segment pattern for '3'
-              CONS  %00110011    ;  7-segment pattern for '4'
-              CONS  %01011011    ;  7-segment pattern for '5'
-              CONS  %01011111    ;  7-segment pattern for '6'
-              CONS  %01110000    ;  7-segment pattern for '7'
-              CONS  %01111111    ;  7-segment pattern for '8'
-              CONS  %01111011    ;  7-segment pattern for '9'
-              CONS  %01110111    ;  7-segment pattern for 'A'
-              CONS  %00011111    ;  7-segment pattern for 'b'
-              CONS  %01001110    ;  7-segment pattern for 'C'
-              CONS  %00111101    ;  7-segment pattern for 'd'
-              CONS  %01001111    ;  7-segment pattern for 'E'
-              CONS  %01000111    ;  7-segment pattern for 'F'
-Hex7Seg_bgn:   AND  R0  %01111   ;  R0 := R0 MOD 16 , just to be safe...
-              LOAD  R1  [SP++]   ;  R1 := address(tbl) (retrieve from stack)
-              LOAD  R1  [R1+R0]  ;  R1 := tbl[R0]
-               RTS
-;
-;      The body of the main program
-;
    main :     LOAD  R5  IOAREA   ;  R5 := "address of the area with the I/O-registers"
               LOAD  R2  [R5+TIMER]  ; R2 will keep the scheduled time to perform task
               LOAD  R4  0  ; R4 will keep the bit pattern for the leds output state
+              LOAD  R3  0  ; maintain a loop counter for the blink task (at 100 0.5 seconds will have passed).
 ;
 loop :
-               SUB  R2  5000    ; the timer uses a 10kHz frequency and our task is
-                                ; to be performed once every half of a second
+               SUB  R2  50    ; the timer uses a 10kHz frequency and our tasks are
+                              ; to be performed once every 200st of a second
 loop_wait :
                CMP  R2  [R5+TIMER]  ; busy waiting taking account of timer underflow
                BMI  loop_wait
 loop_task_blink :
-               XOR  R4  %01  ; flip bit0 to change led state for LED0
+               ADD  R3  1     ; increment counter
+               CMP  R3  100   ; when counter has reached 100 half a second will have passed
+               BNE  loop_task_but7
+               XOR  R4  %01   ; flip bit0 to change led state for LED0
+              LOAD  R3  0     ; reset the counter
 loop_task_but7 :
               LOAD  R0  [GB+INPUTS]  ; load the prev state of the input buttons
               LOAD  R1  [R5+INPUT]   ; load state input buttons
