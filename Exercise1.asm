@@ -17,6 +17,8 @@
    OUTPUT      EQU   11  ;  relative position of the power outputs
    DSPDIG      EQU    9  ;  relative position of the 7-segment display's digit selector
    DSPSEG      EQU    8  ;  relative position of the 7-segment display's segments
+   ; GLOBALS
+   PRESSED     EQU    4  ;  rel pos of pressed button states
 
   begin :      BRA  main         ;  skip subroutine Hex7Seg
 ;
@@ -49,39 +51,62 @@ Hex7Seg_bgn:   AND  R0  %01111   ;  R0 := R0 MOD 16 , just to be safe...
 ;
 ;      The body of the main program
 ;
-   main :     LOAD  R5  IOAREA   ;  R5 := "address of the area with the I/O-registers"
+   main :
+              LOAD  R5  IOAREA   ;  R5 := "address of the area with the I/O-registers"
               LOAD  R2  0        ;  R2 is counter nr. 0, initially 0
               LOAD  R3  0        ;  R3 is counter nr. 1, initially 0
-;
-   loop :     LOAD  R0  [R5+INPUT]  ;   read Input Buttons
-              STOR  R0  [R5+OUTPUT] ;  write this to Output LEDs
-               ;CMP  R0  1        ;  test if Button 0 is pressed, and no other ones
+              STOR  R2  [GB+PRESSED]  ; initialize global PRESSED to 0
 
-              LOAD  R4  R0
-               AND  R4  1
-               BEQ  next         ;  if not then skip this part, continue at "next"
-               ADD  R2  1        ;  increment counter nr. 0
-               AND  R2  %01111   ;  take it modulo 16
-              LOAD  R4  R0
+   loop :
+              LOAD  R4  [R5+INPUT]  ;   read Input Buttons
+              STOR  R4  [R5+OUTPUT] ;  write this to Output LEDs
+
+   seg0 :
               LOAD  R0  R2       ;  copy counter 0 into R0; R2 must be preserved
                BRS  Hex7Seg      ;  translate (value in) R0 into a display pattern
               STOR  R1  [R5+DSPSEG] ; and place this in the Display Element
-              LOAD  R1  %000001  ;  R1 := the bitpattern identifying Digit 0
+              LOAD  R1  %01  ;  R1 := the bitpattern identifying Digit 1
               STOR  R1  [R5+DSPDIG] ; activate Display Element nr. 0
-              LOAD  R0  R4
-               ;BRA  loop         ;  repeat ad infinitum...
-               ;BRA  next         ;  repeat ad infinitum...
-;
-   next :      ;CMP  R0  2        ;  test if Button 1 is pressed, and no other ones
-               AND  R0  2
-               BEQ  loop         ;  if not then skip this part
-               ADD  R3  1        ;  increment counter nr. 1
-               AND  R3  %01111   ;  take it modulo 16
-              LOAD  R4  R0
+              LOAD R0 1000
+              BRS sleep
+
+    incr0:
+              LOAD  R0  R4       ;  Use R4 to check if but0 is set
+               AND  R0  %01
+               BEQ  seg1
+               LOAD R1  [GB+PRESSED]
+               AND R1 %01
+               XOR  R0  R1
+               BEQ  seg1         ;  if not then skip this part, continue at "next"
+               ADD  R2  1        ;  increment counter nr. 0
+               AND  R2  %01111   ;  take it modulo 16
+
+    seg1:
               LOAD  R0  R3       ;  copy counter 1 into R0; R3 must be preserved
                BRS  Hex7Seg      ;  translate (value in) R0 into a display pattern
               STOR  R1  [R5+DSPSEG] ; and place this in the Display Element
-              LOAD  R1  %000010  ;  R1 := the bitpattern identifying Digit 1
+              LOAD  R1  %010  ;  R1 := the bitpattern identifying Digit 1
               STOR  R1  [R5+DSPDIG] ; activate Display Element nr. 1
+              LOAD R0 1000
+              BRS sleep
+
+    incr1 :
+              LOAD  R0  R4       ;  Use R4 to check if but1 is set
+               AND  R0  %010
+               BEQ  end
+               LOAD R1  [GB+PRESSED]
+               AND R1 %010
+               XOR  R0  R1
+               BEQ  end         ;  if not then skip this part
+               ADD  R3  1        ;  increment counter nr. 1
+               AND  R3  %01111   ;  take it modulo 16
+    end:
+               AND  R4  %011
+              STOR  R4  [GB+PRESSED]
                BRA  loop         ;  repeat ad infinitum...
+
+   sleep :
+               SUB R0 1
+               BNE sleep
+               RTS
 @END
