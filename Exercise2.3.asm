@@ -18,6 +18,8 @@
    DSPDIG      EQU    9  ;  relative position of the 7-segment display's digit selector
    DSPSEG      EQU    8  ;  relative position of the 7-segment display's segments
     TIMER      EQU   13  ;  rel pos of timer in I/O area
+    ; GLOBALS
+    INPUTS     EQU   1
 
   begin :      BRA  main         ;  skip subroutine Hex7Seg
 ;
@@ -52,33 +54,25 @@ Hex7Seg_bgn:   AND  R0  %01111   ;  R0 := R0 MOD 16 , just to be safe...
 ;
    main :     LOAD  R5  IOAREA   ;  R5 := "address of the area with the I/O-registers"
               LOAD  R2  [R5+TIMER]  ; R2 will keep the scheduled time to perform task
-              LOAD  R3  0  ; R3 will store the prev input buttons state
               LOAD  R4  0  ; R4 will keep the bit pattern for the leds output state
 ;
 loop :
-;               SUB  R2  5000    ; the timer uses a 10kHz frequency and our task is
-;                                ; to be performed once every half of a second
-;loop_wait :
-;               CMP  R2  [R5+TIMER]  ; busy waiting taking account of timer underflow
-;               BMI  loop_wait
-;loop_task_blink :
-               CMP  R2  [R5+TIMER]  ; Check if the blink task should be performed
-               BMI  loop_task_but7  ; If negative just continue with next task
-               SUB  R2  5000  ; schedule the next time task is to be performed
+               SUB  R2  5000    ; the timer uses a 10kHz frequency and our task is
+                                ; to be performed once every half of a second
+loop_wait :
+               CMP  R2  [R5+TIMER]  ; busy waiting taking account of timer underflow
+               BMI  loop_wait
+loop_task_blink :
                XOR  R4  %01  ; flip bit0 to change led state for LED0
 loop_task_but7 :
+              LOAD  R0  [GB+INPUTS]  ; load the prev state of the input buttons
               LOAD  R1  [R5+INPUT]   ; load state input buttons
-               AND  R1  %010000000   ; select only but7
-              LOAD  R0  R3           ; load prev input buttons state
+              STOR  R1  [GB+INPUTS]   ; store the cur state as the prev state
                AND  R0  %010000000   ; select only but7
-              LOAD  R3  [R5+INPUT]   ; store the cur state as the prev state
-               CMP  R1  0
+               AND  R1  %010000000   ; select only but7
                BEQ  loop_end         ; Only change led if the button has just been pushed
                XOR  R0  R1           ; if but7 changed state
                BEQ  loop_end
-               ;XOR  R0  R4           ;
-               ;AND  R0  %10000000
-               ;XOR  R0  R1
                XOR  R4  R0           ; flip bit7 to change the state of led7
 loop_end :
                STOR R4  [R5+OUTPUT]  ; set LEDs
