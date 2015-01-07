@@ -8,25 +8,18 @@
     TIMER      EQU   13  ;  rel pos of timer in I/O area
     ; GLOBALS
     INPUTS     EQU   1
-    DIGITS_ARR EQU   2   ;  Digits to be shown on the segment displays, length = 6
-    ; LENGTH GLOBAL VARS
+    MINUTES    EQU   2
+    SECONDS    EQU   3
+    HUNDREDS   EQU   4
+    COUNTER    EQU   5
+    PAUSE      EQU   6
+    ; ARRAYS
+    DIGITS_ARR EQU   10   ;  Digits to be shown on the segment displays, length = 6
+    ; LENGTH GLOBAL ARRAYS
     DIGITS_LEN EQU   6
 
    main :
               LOAD  R0  0  ; initilization value
-              ;LOAD  R1  0  ; first offset into DIGITS
-              ;BRS   set_digit
-              ;LOAD  R1  1  ; offset into DIGITS
-              ;BRS   set_digit
-              ;LOAD  R1  2  ; offset into DIGITS
-              ;BRS   set_digit
-              ;LOAD  R1  3  ; offset into DIGITS
-              ;BRS   set_digit
-              ;LOAD  R1  4  ; offset into DIGITS
-              ;BRS   set_digit
-              ;LOAD  R1  5  ; offset into DIGITS
-              ;BRS   set_digit
-
               LOAD  R5  IOAREA
               LOAD  R4  [R5+TIMER]  ; R4 will keep the scheduled time to perform task
               LOAD  R3  0       ; keep index of current display
@@ -42,6 +35,10 @@
               STOR  R0  [GB+R1]
               ADD   R1  1
               STOR  R0  [GB+R1]
+              STOR  R0  [GB+MINUTES]
+              STOR  R0  [GB+SECONDS]
+              STOR  R0  [GB+HUNDREDS]
+              STOR  R0  [GB+COUNTER]
 
 loop :
                SUB  R4  10    ; the timer uses a 10kHz frequency and our tasks are
@@ -49,11 +46,48 @@ loop :
 loop_wait:
                CMP  R4  [R5+TIMER]  ; busy waiting taking account of timer underflow
                BMI  loop_wait
+
+loop_checked_paused:
+               LOAD R0  [GB+PAUSE]
+               CMP  R0  1
+               BEQ  loop_task_light_single_display
+loop_calc_timer_vals:
+               LOAD R0  [GB+COUNTER]
+               ADD  R0  1
+               DVMD R0  10    ; 10 times 1000st of a second is 100st second
+               STOR R1  [GB+COUNTER] ; R1 holds result COUNTER `MOD` 10
+               CMP  R0  0   ; R0 is the result of COUNTER `DIV` 10
+               BEQ loop_task_light_single_display
+               LOAD R0  [GB+HUNDREDS]
+               ADD  R0  1
+               DVMD R0  100
+               STOR R1  [GB+HUNDREDS] ; R1 holds result HUNDREDS `MOD` 100
+               CMP  R0  0   ; R0 is the result of HUNDREDS `DIV` 100
+               BEQ loop_task_light_single_display
+               LOAD R0  [GB+SECONDS]
+               ADD  R0  1
+               DVMD R0  60
+               STOR R1  [GB+SECONDS] ; R1 holds result SECONDS `MOD` 60
+               CMP  R0  0   ; R0 is the result of SECONDS `DIV` 60
+               BEQ loop_task_light_single_display
+               LOAD R0  [GB+MINUTES]
+               ADD  R0  1
+               DVMD R0  60
+               STOR R1  [GB+MINUTES] ; R1 holds result MINUTES `MOD` 60
 loop_task_light_single_display:
               LOAD  R1  DIGITS_ARR
               ADD   R1  R3
               LOAD  R0  [GB+R1]    ;  load the digit value
                BRS  Hex7Seg      ;  translate (value in) R0 into a display pattern
+loop_task_light_single_display_dot0:
+               CMP  R3  2
+               BNE loop_task_light_single_display_dot1
+               OR   R1  %010000000  ; Set the decimal point
+loop_task_light_single_display_dot1:
+               CMP  R3  4
+               BNE loop_task_light_single_display_pattern
+               OR   R1  %010000000  ; Set the decimal point
+loop_task_light_single_display_pattern:
               STOR  R1  [R5+DSPSEG] ; and place this in the Display Element
               LOAD  R0  %01  ; setup shift bits for display bit
               LOAD  R1  R3
@@ -62,24 +96,70 @@ loop_task_light_single_display:
               ; increment idx
               ADD   R3  1
               MOD   R3  DIGITS_LEN
-loop_increment_digit:
+loop_set_digits:
               PUSH R3
-              LOAD R3 0
-               BRS  maybe_increment_digit
-               ADD R3 1
-               BRS  maybe_increment_digit
-               ADD R3 1
-               BRS  maybe_increment_digit
-               ADD R3 1
-               BRS  maybe_increment_digit
-               ADD R3 1
-               BRS  maybe_increment_digit
-               ADD R3 1
-               BRS  maybe_increment_digit
-               PULL R3
-loop_increment_digit_end:
-              LOAD  R1  [R5+INPUT]
-              STOR  R1  [GB+INPUTS]
+              LOAD R3 DIGITS_ARR
+              LOAD R0 [GB+HUNDREDS]
+              MOD  R0 10
+              STOR R0 [GB+R3]
+              ADD  R3 1
+              LOAD R0 [GB+HUNDREDS]
+              DIV  R0 10
+              MOD  R0 10
+              STOR R0 [GB+R3]
+              ADD  R3 1
+              LOAD R0 [GB+SECONDS]
+              MOD  R0 10
+              STOR R0 [GB+R3]
+              ADD  R3 1
+              LOAD R0 [GB+SECONDS]
+              DIV  R0 10
+              MOD  R0 10
+              STOR R0 [GB+R3]
+              ADD  R3 1
+              LOAD R0 [GB+MINUTES]
+              MOD  R0 10
+              STOR R0 [GB+R3]
+              ADD  R3 1
+              LOAD R0 [GB+MINUTES]
+              DIV  R0 10
+              MOD  R0 10
+              STOR R0 [GB+R3]
+              PULL R3
+
+read_inputs_but0:
+              LOAD  R0  [GB+INPUTS]  ; load the prev state of the input buttons
+              LOAD  R1  [R5+INPUT]   ; load state input buttons
+               AND  R0  %01   ; select only but0
+               AND  R1  %01   ; select only but0
+               BEQ  read_inputs_but1         ; Only change led if the button has just been pushed
+               XOR  R0  R1           ; if but7 changed state
+               BEQ  read_inputs_but1
+              LOAD  R2  %01
+              STOR  R2  [GB+PAUSE]
+read_inputs_but1:
+              LOAD  R0  [GB+INPUTS]  ; load the prev state of the input buttons
+              LOAD  R1  [R5+INPUT]   ; load state input buttons
+               AND  R0  %010   ; select only but0
+               AND  R1  %010   ; select only but0
+               BEQ  read_inputs_but2         ; Only change led if the button has just been pushed
+               XOR  R0  R1           ; if but7 changed state
+               BEQ  read_inputs_but2
+              LOAD  R2  0
+              STOR  R2  [GB+PAUSE]
+read_inputs_but2:
+              LOAD  R0  [GB+INPUTS]  ; load the prev state of the input buttons
+              LOAD  R1  [R5+INPUT]   ; load state input buttons
+               AND  R0  %0100   ; select only but0
+               AND  R1  %0100   ; select only but0
+               BEQ  loop_end         ; Only change led if the button has just been pushed
+               XOR  R0  R1           ; if but7 changed state
+               BEQ  loop_end
+              LOAD  R0  0
+              STOR  R0  [GB+MINUTES]
+              STOR  R0  [GB+SECONDS]
+              STOR  R0  [GB+HUNDREDS]
+              STOR  R0  [GB+COUNTER]
 
 
 
@@ -100,29 +180,31 @@ loop_increment_digit_end:
 ;               BEQ  loop_end
 ;               XOR  R4  R0           ; flip bit7 to change the state of led7
 loop_end :
+              LOAD  R0  [R5+INPUT]  ; Save current inputs as previous
+              STOR  R0  [GB+INPUTS]
                BRA  loop
 
-; R3 is current idx
-maybe_increment_digit:
-              LOAD  R0  1
-              LOAD  R1  R3
-              BRS shift_bits
-              LOAD  R2  R0
-              LOAD  R0  [GB+INPUTS]  ; load the prev state of the input buttons
-              LOAD  R1  [R5+INPUT]   ; load state input buttons
-               AND  R0  R2 ; select only button idx
-               AND  R1  R2 ; select only button idx
-               BEQ  maybe_increment_digit_end         ; Only change led if the button has just been pushed
-               XOR  R0  R1
-               BEQ  maybe_increment_digit_end
-              LOAD  R1  DIGITS_ARR
-              ADD   R1  R3
-              LOAD  R0  [GB+R1]    ;  load the digit value
-               ADD  R0  1
-               MOD  R0  16
-              STOR  R0  [GB+R1]
-maybe_increment_digit_end:
-                RTS
+;; R3 is current idx
+;maybe_increment_digit:
+;              LOAD  R0  1
+;              LOAD  R1  R3
+;              BRS shift_bits
+;              LOAD  R2  R0
+;              LOAD  R0  [GB+INPUTS]  ; load the prev state of the input buttons
+;              LOAD  R1  [R5+INPUT]   ; load state input buttons
+;               AND  R0  R2 ; select only button idx
+;               AND  R1  R2 ; select only button idx
+;               BEQ  maybe_increment_digit_end         ; Only change led if the button has just been pushed
+;               XOR  R0  R1
+;               BEQ  maybe_increment_digit_end
+;              LOAD  R1  DIGITS_ARR
+;              ADD   R1  R3
+;              LOAD  R0  [GB+R1]    ;  load the digit value
+;               ADD  R0  1
+;               MOD  R0  16
+;              STOR  R0  [GB+R1]
+;maybe_increment_digit_end:
+;                RTS
 
 
 
@@ -139,14 +221,14 @@ shift_bits_end:
         RTS
 
 
-set_digit:  ; R0 should be the value of the digit and R1 should be the offset in the DIGITS array
-               MOD  R0  16
-               LOAD R2  GB  ; GODDAMN DUMB DEBUGGER
-               LOAD R3  R1
-               ADD  R3  R2  ; GODDAMN DUMB DEBUGGER
-               ADD  R3  DIGITS_ARR
-              STOR  R0  [R3]
-               RTS
+;set_digit:  ; R0 should be the value of the digit and R1 should be the offset in the DIGITS array
+;               MOD  R0  16
+;               LOAD R2  GB  ; GODDAMN DUMB DEBUGGER
+;               LOAD R3  R1
+;               ADD  R3  R2  ; GODDAMN DUMB DEBUGGER
+;               ADD  R3  DIGITS_ARR
+;              STOR  R0  [R3]
+;               RTS
 
 ;      Routine Hex7Seg maps a number in the range [0..15] to its hexadecimal
 ;      representation pattern for the 7-segment display.
