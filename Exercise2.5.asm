@@ -161,51 +161,10 @@ read_inputs_but2:
               STOR  R0  [GB+HUNDREDS]
               STOR  R0  [GB+COUNTER]
 
-
-
-;loop_task_blink :
-;               ADD  R3  1     ; increment counter
-;               CMP  R3  100   ; when counter has reached 100 half a second will have passed
-;               BNE  loop_task_but7
-;               XOR  R4  %01   ; flip bit0 to change led state for LED0
-;              LOAD  R3  0     ; reset the counter
-;loop_task_but7 :
-;              LOAD  R0  [GB+INPUTS]  ; load the prev state of the input buttons
-;              LOAD  R1  [R5+INPUT]   ; load state input buttons
-;              STOR  R1  [GB+INPUTS]   ; store the cur state as the prev state
-;               AND  R0  %010000000   ; select only but7
-;               AND  R1  %010000000   ; select only but7
-;               BEQ  loop_end         ; Only change led if the button has just been pushed
-;               XOR  R0  R1           ; if but7 changed state
-;               BEQ  loop_end
-;               XOR  R4  R0           ; flip bit7 to change the state of led7
 loop_end :
               LOAD  R0  [R5+INPUT]  ; Save current inputs as previous
               STOR  R0  [GB+INPUTS]
                BRA  loop
-
-;; R3 is current idx
-;maybe_increment_digit:
-;              LOAD  R0  1
-;              LOAD  R1  R3
-;              BRS shift_bits
-;              LOAD  R2  R0
-;              LOAD  R0  [GB+INPUTS]  ; load the prev state of the input buttons
-;              LOAD  R1  [R5+INPUT]   ; load state input buttons
-;               AND  R0  R2 ; select only button idx
-;               AND  R1  R2 ; select only button idx
-;               BEQ  maybe_increment_digit_end         ; Only change led if the button has just been pushed
-;               XOR  R0  R1
-;               BEQ  maybe_increment_digit_end
-;              LOAD  R1  DIGITS_ARR
-;              ADD   R1  R3
-;              LOAD  R0  [GB+R1]    ;  load the digit value
-;               ADD  R0  1
-;               MOD  R0  16
-;              STOR  R0  [GB+R1]
-;maybe_increment_digit_end:
-;                RTS
-
 
 
 ; R0 is value to be shifted, result will be in this register
@@ -219,16 +178,6 @@ shift_bits_cond:
         BRA shift_bits_cond
 shift_bits_end:
         RTS
-
-
-;set_digit:  ; R0 should be the value of the digit and R1 should be the offset in the DIGITS array
-;               MOD  R0  16
-;               LOAD R2  GB  ; GODDAMN DUMB DEBUGGER
-;               LOAD R3  R1
-;               ADD  R3  R2  ; GODDAMN DUMB DEBUGGER
-;               ADD  R3  DIGITS_ARR
-;              STOR  R0  [R3]
-;               RTS
 
 ;      Routine Hex7Seg maps a number in the range [0..15] to its hexadecimal
 ;      representation pattern for the 7-segment display.
