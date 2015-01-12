@@ -1,10 +1,11 @@
 @DATA
     ad_val      DW  0
-    inputs      DW  0
+    prev_inputs      DW  0
+    cur_inputs      DW  0
     ; ARRAYS
     leds_output DW  0   ; state of the 8 binary output leds
     ; n percent value of PWM for each of the 8 leds
-    ;leds_array DS  $32,$32,$32,$32,$32,$32,$32,$32
+    ;leds_array DS  50,50,50,50,50,50,50,50
     leds_array  DW  5000,5000,5000,5000,5000,5000,5000,5000
     leds_timer  DS  8     ; scheduled time for change of state for each of the 8 leds
 
@@ -49,9 +50,18 @@ main :
 
 loop :
         BRS  right_led
-loop_for_each_led:
-        BRS  load_percentage_delta
+        LOAD R0  [R5+INPUT]
+        STOR R0  [GB+cur_inputs]
+        BRS  load_n_delta
+        LOAD R1  1
+loop_for_each_button:
         BRS  update_led_percentage
+        ADD  R1  1
+        CMP  R1  8
+        BNE  loop_for_each_button
+        LOAD R0  [GB+cur_inputs]
+        STOR R0  [GB+prev_inputs]
+loop_for_each_led:
         BRS  update_led
         LOAD R0  [SP]
         ADD  R0  1
@@ -59,65 +69,41 @@ loop_for_each_led:
         CMP  R0  LEDS_LEN
         BLT  loop_for_each_led
 loop_end :
-        LOAD R0  [R5+INPUT]
-        STOR R0  [GB+inputs]
         LOAD R0  [GB+leds_output]
         STOR R0  [R5+OUTPUT]
         LOAD R0  1
         STOR R0  [SP]
         BRA  loop
 
-load_percentage_delta:
-        LOAD R4  [R5+INPUT]  ; load binary input button states
-        LOAD R3  [GB+inputs] ; load previous input button states
-        LOAD R2  R4          ; make copy current states
-        AND  R2  %01         ; only select bit0/button0
-        MULS R2  -1*N_DELTA
-        BNE  load_percentage_delta_end
-        LOAD R2  N_DELTA
-load_percentage_delta_end:
+load_n_delta:
+        LOAD R0  [GB+cur_inputs]  ; load binary input button states
+        AND  R0  %01         ; only select bit0/button0
+        MULS R0  -1*N_DELTA
+        BNE  load_n_delta_end
+        LOAD R0  N_DELTA
+load_n_delta_end:
         RTS
-;update_percentages:
-;        LOAD R4  [R5+INPUT]  ; load binary input button states
-;        LOAD R3  [GB+inputs] ; load previous input button states
-;        STOR R4  [GB+inputs]
-;        LOAD R2  R4          ; make copy current states
-;        AND  R2  %01         ; only select bit0/button0
-;        MULS R2  -1*N_DELTA
-;        BNE  update_percentages_main
-;        LOAD R2  N_DELTA
-;update_percentages_main:
-;        LOAD R1  R4          ; make copy current states
-;        AND  R1  %010        ; only select bit1/button1
-;        BEQ  update_percentages_end ; if button1 is 0 goto end
-;        AND  R3  %010
-;        XOR  R1  R3
-;        BEQ  update_percentages_end ; if button1 did not change state goto end
-;        LOAD R0  [GB+leds_array]
-;        ADD  R0  R2
-;        STOR R0  [GB+leds_array]
-;update_percentages_end:
-;        RTS
 
-
-update_led_percentage: ; R0 is the index, R2 is delta to add, R3 is prev input, R4 is cur input
+update_led_percentage: ; R0 is the delta, R1 is the index
         PUSH R0
-        LOAD R1  R0
+        PUSH R1
+        LOAD R3  [GB+cur_inputs]
+        LOAD R4  [GB+prev_inputs]
         LOAD R0  1
         BRS  shift_bits
-        AND  R4  R0                ; only select the button specified by the index
-        BEQ  update_led_percentage_end ; if button1 is 0 goto end
         AND  R3  R0                ; only select the button specified by the index
-        XOR  R4  R3
-        BEQ  update_led_percentage_end ; if button1 did not change state goto end
+        BEQ  update_led_percentage_end ; if button is 0 goto end
+        AND  R4  R0                ; only select the button specified by the index
+        BNE  update_led_percentage_end ; if button was already 1 goto end
         ADD  R1  leds_array
-        LOAD R0  [GB+R1]
-        ADD  R0  R2
-        BMI  update_led_percentage_end
+        LOAD R0  [GB+R1]   ; load old value
+        ADD  R0  [SP+1]    ; add the delta (delta may be negative)
+        BMI  update_led_percentage_end  ; if the result is negative don't update the global
         CMP  R0  MAX_N
-        BGT  update_led_percentage_end
-        STOR R0  [GB+R1]
+        BGT  update_led_percentage_end  ; if the result is too large don't update the global
+        STOR R0  [GB+R1]   ; store the new value in the global
 update_led_percentage_end:
+        PULL R1
         PULL R0
         RTS
 
@@ -150,7 +136,7 @@ update_led_sched_on: ; R1 holds index
         LOAD R0  TIMER_DELTA
         SUB  R0  R1       ; diff = TIMER_DELTA - n_value
         SUB  R2  R0       ; new_timer = timer - diff
-        STOR R2  [GB+R3]  ; leds_array[index] = new_timer
+        STOR R2  [GB+R3]  ; leds_timer[index] = new_timer
 update_led_sched_off: ; R1 holds index
         ADD  R1  leds_array ; calc relative position of led's n val to GB
         LOAD R3  [SP+1]       ; load index
@@ -158,7 +144,7 @@ update_led_sched_off: ; R1 holds index
         LOAD R1  [GB+R1]  ; load the n value for the led
         LOAD R2  [GB+R3]  ; Load the timer for led
         SUB  R2  R1       ; new_timer = timer - n_value
-        STOR R2  [GB+R3]  ; leds_array[index] = new_timer
+        STOR R2  [GB+R3]  ; leds_timer[index] = new_timer
 update_led_end:
         RTS
 
