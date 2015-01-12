@@ -13,18 +13,18 @@
     GREEN_OUTPUT  EQU  10
     ; GLOBALS
     TIMER_INTR_ADDR  EQU  2 * 8
-    TIMER_DELTA  EQU  10000
+    TIMER_DELTA  EQU  1000
 
 main :
            LOAD R0  timer_interrupt
            ADD  R0  R5
            LOAD R1  TIMER_INTR_ADDR
            STOR R0  [R1]
-           SETI 8
            LOAD R5  IOAREA   ;  R5 := "address of the area with the I/O-registers"
            LOAD R0  0
            SUB  R0  [R5+TIMER]
            STOR R0  [R5+TIMER]
+           SETI 8
 
 loop :
            LOAD R0  [R5+INPUT]
@@ -36,9 +36,10 @@ timer_interrupt:
         STOR  R0  [R5+TIMER]
         LOAD  R1  [GB+inputs]
         STOR  R1  [R5+OUTPUT]
-        ;LOAD  R2  [GB+green_leds]
-        ;XOR   R2  %0111
-        ;STOR  R2  [R5+GREEN_OUTPUT]
+        LOAD  R2  [GB+green_leds]
+        XOR   R2  %0111
+        STOR  R2  [R5+GREEN_OUTPUT]
+        STOR  R2  [GB+green_leds]
         SETI  8
         RTE
 
